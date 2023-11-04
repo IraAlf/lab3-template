@@ -6,7 +6,7 @@ services:
 
     ports:
       - 15672:15672
-  postgres:
+  postgres2:
     image: library/postgres:13
     container_name: postgres
     restart: on-failure
@@ -29,7 +29,7 @@ services:
     ports:
       - "8070:8070"
     depends_on:
-      - postgres
+      - postgres2
 
   flight-service:
     build:
@@ -40,7 +40,7 @@ services:
     ports:
       - "8060:8060"
     depends_on:
-      - postgres
+      - postgres2
 
   bonus-service:
     build:
@@ -51,7 +51,7 @@ services:
     ports:
       - "8050:8050"
     depends_on:
-      - postgres
+      - postgres2
 
   gateway-service:
     build:
