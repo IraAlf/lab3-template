@@ -36,7 +36,7 @@ jobs:
 
       - name: Run API Tests
         timeout-minutes: 5
-        run: ./scripts/test-script.sh
+        run: sudo ./scripts/test-script.sh
         env:
           VARIANT: v1
           SERVICE_NAME: bonus-service
