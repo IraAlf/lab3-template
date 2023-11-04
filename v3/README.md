@@ -2,46 +2,139 @@
 
 Система предоставляет пользователю возможность забронировать автомобиль на выбранные даты.
 
+### Структура Базы Данных
+
+#### Cars Service
+
+Сервис запускается на порту 8070.
+
+```sql
+CREATE TABLE cars
+(
+    id                  SERIAL PRIMARY KEY,
+    car_uid             uuid UNIQUE NOT NULL,
+    brand               VARCHAR(80) NOT NULL,
+    model               VARCHAR(80) NOT NULL,
+    registration_number VARCHAR(20) NOT NULL,
+    power               INT,
+    price               INT         NOT NULL,
+    type                VARCHAR(20)
+        CHECK (type IN ('SEDAN', 'SUV', 'MINIVAN', 'ROADSTER')),
+    availability        BOOLEAN     NOT NULL
+);
+```
+
+#### Rental Service
+
+Сервис запускается на порту 8060.
+
+```sql
+CREATE TABLE rental
+(
+    id          SERIAL PRIMARY KEY,
+    rental_uid  uuid UNIQUE              NOT NULL,
+    username    VARCHAR(80)              NOT NULL,
+    payment_uid uuid                     NOT NULL,
+    car_uid     uuid                     NOT NULL,
+    date_from   TIMESTAMP WITH TIME ZONE NOT NULL,
+    date_to     TIMESTAMP WITH TIME ZONE NOT NULL,
+    status      VARCHAR(20)              NOT NULL
+        CHECK (status IN ('IN_PROGRESS', 'FINISHED', 'CANCELED'))
+);
+```
+
+#### Payment Service
+
+Сервис запускается на порту 8050.
+
+```sql
+CREATE TABLE payment
+(
+    id          SERIAL PRIMARY KEY,
+    payment_uid uuid        NOT NULL,
+    status      VARCHAR(20) NOT NULL
+        CHECK (status IN ('PAID', 'CANCELED')),
+    price       INT         NOT NULL
+);
+```
+
+### Описание API
+
+#### Получить список всех доступных для бронирования автомобилей
+
+Если передан флаг `showAll = true`, то выводить автомобили в резерве (`availability = false`).
+
+```http request
+GET {{baseUrl}}/api/v1/cars&page={{page}}&size={{size}}
+```
+
+#### Получить информацию о всех арендах пользователя
+
+```http request
+GET {{baseUrl}}/api/v1/rental
+X-User-Name: {{username}}
+```
+
+#### Информация по конкретной аренде пользователя
+
+При запросе требуется проверить, что аренда принадлежит пользователю.
+
+```http request
+GET {{baseUrl}}/api/v1/rental/{{rentalUid}}
+X-User-Name: {{username}}
+```
+
+#### Забронировать автомобиль
+
+Пользователь вызывает метод `GET {{baseUrl}}/api/v1/cars` и выбирает нужный автомобиль и в запросе на аренду передает:
+
+* `carUid` (UUID автомобиля) – берется из запроса `/cars`;
+* `dateFrom` и `dateTo` (дата начала и конца аренды) – задается пользователем.
+
+Система проверяет, что автомобиль с таким `carUid` существует и резервирует его (флаг `availability = false`). При
+повторном вызове `GET {{baseUrl}}/api/v1/cars` этот автомобиль будет скрыт в выдаче результатов пока не будет передан
+флаг `showAll = true`.
+
+Считается количество дней аренды (`dateFrom` – `dateTo`), вычисляется общая сумма бронирования, выполняется запрос в
+Payment Service и создается новая запись об оплате. В сервисе Rental Service создается запись с информацией о
+бронировании.
+
+```http request
+POST {{baseUrl}}/api/v1/rental
+Content-Type: application/json
+X-User-Name: {{username}}
+
+{
+  "carUid": "109b42f3-198d-4c89-9276-a7520a7120ab",
+  "dateFrom": "2021-10-08",
+  "dateTo": "2021-10-11"
+}
+```
+
+#### Завершение аренды автомобиля
+
+* С автомобиля снимается резерв.
+* В Rental Service аренда помечается завершенной (статус `FINISHED`).
+
+```http request
+POST {{baseUrl}}/api/v1/rental/{{rentalUid}}/finish
+X-User-Name: {{username}}
+```
+
+#### Отмена аренды автомобиля
+
+* С автомобиля снимается резерв.
+* В Rental Service аренда помечается отмененной (статус `CANCELED`).
+* В Payment Service запись об оплате помечается отмененной (статус `CANCELED`).
+
+```http request
+DELETE {{baseUrl}}/api/v1/rental/{{rentalUid}}
+X-User-Name: {{username}}
+```
+
 Описание в формате [OpenAPI](%5Binst%5D%5Bv3%5D%20Car%20Rental%20System.yml).
 
-##### Деградация функциональности
-
-Если метод требует получения данных из нескольких источников, то в случае недоступности одного _не критичного_
-источника, то недостающие данные возвращаются как некоторый fallback ответ, а остальные данные подставляются из
-успешного запроса.
-
-Например, метод `GET /api/v1/cars` в случае недоступности Car Service должен вернуть 500 ошибку, т.к. данные, получаемые
-из этого сервиса критичные.
-
-Для методов `GET /api/v1/rental` и `GET /api/v1/rental/{{rentalUid}}` в случае недоступности Rental Service запрос
-должен вернуть 500 ошибку, а в случае недоступности Payment Service или Car Service, поля `payment` и `car` должны
-содержать только uid записи (`paymentUid` и `carUid` соответственно).
-
-##### Бронирование автомобиля
-
-1. Запрос к Car Service для проверки, что такой автомобиль существует и доступен. Если условие выполняется, то
-   автомобиль резервируется (`availability = false`). Если Car Service недоступен, то запрос завершается с ошибокой.
-1. Выполняется запрос в Rental Service для создания записи о бронировании.
-1. Если запрос к Rental Service завершился неудачей (500 ошибка или сервис недоступен), то выполняется откат операции
-   резервирования автомобиля в Car Service (`availability = true`)
-1. Выполняется запрос к Payment Service для создания оплаты.
-1. Если запрос к Payment Service завершился неудачей (500 ошибка или сервис недоступен), то выполняется откат операции
-   оплаты в Payment Service и в Car Service снимается резерв с автомобиля (`availability = true`).
-
-##### Отмена бронирования автомобиля
-
-1. Выполняется запрос к Car Service для снятия резерва с автомобиля (`availability = true`).
-1. После этого выполняется запрос к Rental Service для установки флага аренды `CANCELED`. Если этот сервис недоступен,
-   то на Gateway Service запрос поставить в очередь и повторять пока он не завершится успехом (timeout 10 секунд), потом
-   перейти к следующему шагу.
-1. Выполнить запрос к Payment Service для отмены оплаты. Если сервис недоступен, то аналогично предыдущему шагу, на
-   Gateway Service запрос ставится в очередь и повторяется пока не завершится успехом (timeout 10 секунд), при этом
-   пользователю отдается информация об успешном завершении всей операции.
-
 ### Данные для тестов
-
-В тестовом сценарии выключается _Payment Service_, необходимо в переменную `serviceName` в
-в [[classroom.yml](../.github/workflows/classroom.yml)] прописать его название в Heroku.
 
 Создать данные для тестов:
 

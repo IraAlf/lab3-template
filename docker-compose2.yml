@@ -1,0 +1,13 @@
+version: "3"
+services:
+
+
+  bonus-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.bonus-service
+    environment:
+      PORT: "8050"
+    ports:
+      - "8050:8050"
+

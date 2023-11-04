@@ -3,47 +3,158 @@
 Система предоставляет пользователю сервис поиска и бронирования отелей на интересующие даты. В зависимости от количества
 заказов система лояльности дает скидку пользователю на новые бронирования.
 
+### Структура Базы Данных
+
+#### Reservation Service
+
+Сервис запускается на порту 8070.
+
+```sql
+CREATE TABLE reservation
+(
+    id              SERIAL PRIMARY KEY,
+    reservation_uid uuid UNIQUE NOT NULL,
+    username        VARCHAR(80) NOT NULL,
+    payment_uid     uuid        NOT NULL,
+    hotel_id        INT REFERENCES hotels (id),
+    status          VARCHAR(20) NOT NULL
+        CHECK (status IN ('PAID', 'CANCELED')),
+    start_date      TIMESTAMP WITH TIME ZONE,
+    end_data        TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE hotels
+(
+    id        SERIAL PRIMARY KEY,
+    hotel_uid uuid         NOT NULL UNIQUE,
+    name      VARCHAR(255) NOT NULL,
+    country   VARCHAR(80)  NOT NULL,
+    city      VARCHAR(80)  NOT NULL,
+    address   VARCHAR(255) NOT NULL,
+    stars     INT,
+    price     INT          NOT NULL
+);
+```
+
+#### Payment Service
+
+Сервис запускается на порту 8060.
+
+```sql
+CREATE TABLE payment
+(
+    id          SERIAL PRIMARY KEY,
+    payment_uid uuid        NOT NULL,
+    status      VARCHAR(20) NOT NULL
+        CHECK (status IN ('PAID', 'CANCELED')),
+    price       INT         NOT NULL
+);
+```
+
+#### Loyalty Service
+
+Сервис запускается на порту 8050.
+
+```sql
+CREATE TABLE loyalty
+(
+    id                SERIAL PRIMARY KEY,
+    username          VARCHAR(80) NOT NULL UNIQUE,
+    reservation_count INT         NOT NULL DEFAULT 0,
+    status            VARCHAR(80) NOT NULL DEFAULT 'BRONZE'
+        CHECK (status IN ('BRONZE', 'SILVER', 'GOLD')),
+    discount          INT         NOT NULL
+);
+```
+
+### Описание API
+
+#### Получить список отелей
+
+```http request
+GET {{baseUrl}}/api/v1/hotels&page={{page}}&size={{size}}
+```
+
+#### Получить полную информацию о пользователе
+
+Возвращается информация о бронированиях и статусе в системе лояльности.
+
+```http request
+GET {{baseUrl}}/api/v1/me
+X-User-Name: {{username}}
+```
+
+#### Информация по всем бронированиям пользователя
+
+```http request
+GET {{baseUrl}}/api/v1/reservations
+X-User-Name: {{username}}
+```
+
+#### Информация по конкретному бронированию
+
+При запросе требуется проверить, что бронирование принадлежит пользователю.
+
+```http request
+GET {{baseUrl}}/api/v1/reservations/{{reservationUid}}
+X-User-Name: {{username}}
+```
+
+#### Забронировать отель
+
+Пользователь вызывает метод `GET {{baseUrl}}/api/v1/hotels` и выбирает нужный отель и в запросе на бронирование
+передает:
+
+* `hotelUid` (UUID отеля) – берется из запроса `/hotels`;
+* `startDate` и `endDate` (дата начала и конца бронирования) – задается пользователем.
+
+Система проверяет, что отель с таким `hotelUid` существует. Считаем что в отеле бесконечное количество мест.
+
+Считается количество ночей (`endDate` – `startDate`), вычисляется общая сумма бронирования, выполняется обращение в
+Loyalty Service и получается скидка в зависимости от статуса клиента:
+
+* BRONZE – 5%
+* SILVER – 7%
+* GOLD – 10%
+
+После применения скидки выполняется запрос в Payment Service и создается новая запись об оплате. После этого выполняется
+обращение в сервис Loyalty Service, увеличивается счетчик бронирований. По-умолчанию у клиента статус `BRONZE`,
+статус `SILVER` присваивается после 10 бронирований, `GOLD` после 20.
+
+```http request
+POST {{baseUrl}}/api/v1/reservations
+Content-Type: application/json
+X-User-Name: {{username}}
+
+{
+  "hotelUid": "049161bb-badd-4fa8-9d90-87c9a82b0668",
+  "startDate": "2021-10-08",
+  "endDate": "2021-10-11"
+}
+```
+
+#### Отменить бронирование
+
+* Статус бронирования помечается как `CANCELED`.
+* В Payment Service запись об оплате помечается отмененной (статус `CANCELED`).
+* Loyalty Service уменьшается счетчик бронирований. Так же возможно понижение статуса лояльности, если счетчик стал ниже
+  границы уровня.
+
+```http request
+DELETE {{baseUrl}}/api/v1/reservations/{{reservationUid}}
+X-User-Name: {{username}}
+```
+
+#### Получить информацию о статусе в программе лояльности
+
+```http request
+GET {{baseUrl}}/api/v1/loyalty
+X-User-Name: {{username}}
+```
+
 Описание в формате [OpenAPI](%5Binst%5D%5Bv2%5D%20Hotels%20Booking%20System.yml).
 
-##### Деградация функциональности
-
-Если метод требует получения данных из нескольких источников, то в случае недоступности одного _не критичного_
-источника, то недостающие данные возвращаются как некоторый fallback ответ, а остальные данные подставляются из
-успешного запроса.
-
-Например, метод `GET /api/v1/hotels` в случае недоступности Reservation Service должен вернуть 500 ошибку, т.к. данные,
-получаемые из этого сервиса критичные. Аналогично для метода `GET /api/v1/loyalty` и сервиса Loyalty Service.
-
-Для методов `GET /api/v1/reservations` и `GET /api/v1/reservations/{{reservationUid}}` в случае недоступности
-Reservation Service запрос должен вернуть 500 ошибку, а в случае недоступности Payment Service, поле `payment` должно
-вернуться пустое.
-
-Аналогично для метода `GET /api/v1/me`, в случае недоступности Payment Service или Loyalty Service, пользователю
-возвращается fallback ответ.
-
-##### Бронирование отеля
-
-1. Запрос к Reservation Service для проверки, что такой отель существует. Если Reservation Service недоступен, то запрос
-   завершается с ошибокой.
-1. Выполняется запрос к Payment Service для создания оплате. Если сервис недоступен, то запрос завершается с ошибкой.
-1. Выполняется запрос к Loyalty Service для увеличения счетчика бронирований и, возможно, как следствие этого, изменения
-   статуса клента.
-1. Если запрос к Loyalty Service завершился неудачей (500 ошибка или сервис недоступен), то выполняется откат операции
-   оплаты в Ticket Service.
-
-##### Отмена бронирования
-
-1. Выполняется запрос к Payment Service для отмены оплаты (устанавливается статус `CANCELED`). Если этот сервис
-   недоступен, то весь запрос завершается с ошибкой.
-1. После этого выполняется запрос к Loyalty Service для уменьшения счетчика бронирований и, возможно, если счетчик стал
-   ниже уровня, понижения статуса пользователя. Если этот сервис недоступен, то пользователю все равно отдается
-   информация что операция завершилась успешно, а на Gateway Service запрос ставится в очередь и повторяется пока не
-   завершится успехом (timeout 10 секунд).
-
 ### Данные для тестов
-
-В тестовом сценарии выключается _Loyalty Service_, необходимо в переменную `serviceName` в
-в [[classroom.yml](../.github/workflows/classroom.yml)] прописать его название в Heroku.
 
 Создать данные для тестов:
 

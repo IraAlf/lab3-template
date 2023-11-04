@@ -1,60 +1,53 @@
-# Лабораторная работа #3
+# Лабораторная работа #2
 
 ![GitHub Classroom Workflow](../../workflows/GitHub%20Classroom%20Workflow/badge.svg?branch=master)
 
-## Fault Tolerance
+## Microservices
 
 ### Формулировка
 
-На базе [Лабораторной работы #2](https://github.com/bmstu-rsoi/lab2-template) реализовать механизмы, увеличивающие
-отказоустойчивость системы.
+В рамках второй лабораторной работы _по вариантам_ требуется реализовать систему, состоящую из нескольких
+взаимодействующих друг с другом сервисов.
 
 ### Требования
 
-1. На Gateway Service для _всех операций_ чтения реализовать паттерн Circuit Breaker. Накапливать статистику в памяти, и
-   если система не ответила N раз, то в N + 1 раз вместо запроса сразу отдавать fallback. Через небольшой timeout
-   выполнить запрос к реальной системе, чтобы проверить ее состояние.
-2. На каждом сервисе сделать специальный endpoint `GET /manage/health`, отдающий 200 ОК, он будет использоваться для
-   проверки доступности сервиса (в [Github Actions](.github/workflows/classroom.yml) в скрипте проверки готовности всех
-   сервисов [wait-script.sh](scripts/wait-script.sh) и в тестах [test-script.sh](scripts/test-script.sh)).
-   ```shell
-   "$path"/wait-for.sh -t 120 "http://localhost:$port/manage/health" -- echo "Host localhost:$port is active"
-   ```
-4. В случае недоступности данных из некритичного источника (не основного), возвращается fallback-ответ. В зависимости от
-   ситуации, это может быть:
-    * пустой объект или массив;
-    * объект, с заполненным полем (`uid` или подобным), по которому идет связь с другой системой;
-    * default строка (если при этом не меняется тип переменной).
-5. В задании описаны две операции, изменяющие состояния нескольких систем. В случае недоступности одной из систем,
-   участвующих в этой операции, выполнить:
-    1. откат всей операции;
-    2. возвращать пользователю ответ об успешном завершении операции, а на Gateway Service поставить этот запрос в
-       очередь для повторного выполнения.
-6. Для автоматических прогонов тестов в файле [autograding.json](.github/classroom/autograding.json)
-   и [classroom.yml](.github/workflows/classroom.yml) заменить `<variant>` на ваш вариант.
+1. Каждый сервис имеет свое собственное хранилище, если оно ему нужно. Для учебных целей можно использовать один
+   instance базы данных, но каждый сервис работает _только_ со своей логической базой. Запросы между базами _запрещены_.
+2. Для межсервисного взаимодействия использовать HTTP (придерживаться RESTful). Допускается использовать и другие
+   протоколы, например grpc, но это требуется согласовать с преподавателем.
+3. Выделить **Gateway Service** как единую точку входа и межсервисной коммуникации. Горизонтальные запросы между
+   сервисами делать _нельзя_.
+4. Код хранить на Github, для сборки использовать Github Actions.
+5. Gateway Service должен запускаться на порту 8080, остальные сервисы запускать на портах 8050, 8060, 8070.
+6. Каждый сервис должен быть завернут в docker.
 7. В [docker-compose.yml](docker-compose.yml) прописать сборку и запуск docker контейнеров.
-8. Код хранить на Github, для сборки использовать Github Actions.
-9. Каждый сервис должен быть завернут в docker.
-10. В classroom.yml дописать шаги на сборку, прогон unit-тестов.
+8. В [classroom.yml](.github/workflows/classroom.yml) дописать шаги на сборку, прогон unit-тестов и деплой каждого
+   сервиса на heroku.
+9. Для автоматических прогонов тестов в файле [autograding.json](.github/classroom/autograding.json)
+   и [classroom.yml](.github/workflows/classroom.yml) заменить `<variant>` на ваш вариант.
 
 ### Пояснения
 
-1. Для локальной разработки можно использовать Postgres в docker.
-2. Схема взаимодействия сервисов остается как в [Лабораторной работы #2](https://github.com/bmstu-rsoi/lab2-template).
-3. Для реализации очереди можно использовать language native реализацию (например, BlockingQueue для Java), либо
-   какую-то готовую реализацию типа RabbitMQ, Redis, ZeroMQ и т.п. Крайне нежелательно использовать реляционную базу
-   данных как средство эмуляции очереди.
-4. Можно использовать внешнюю очередь или запускать ее в docker.
-5. Для проверки отказоустойчивости используется остановка и запуск контейнеров docker, это делает
-   скрипт [test-script.sh](scripts/test-script.sh). Скрипт нужно запускать из корня проекта, т.к. он обращается к папке
-   postman по вариантам.
-   ```shell
-   # запуск тестового сценария:
-   # * <variant> – номер варианта (v1 | v2 | v3 | v4 )
-   # * <service> – имя сервиса в Docker Compose
-   # * <port>    – порт, на котором запущен сервис
-   $ scripts/test-script.sh <variant> <service> <port>
-   ```
+1. Для разработки можно использовать Postgres в docker, для этого нужно запустить docker compose up -d, поднимется
+   контейнер с Postgres 13, и будут созданы соответствующие вашему варианту (описанные в
+   файлах [schema-$VARIANT](postgres/scripts)) базы данных и пользователь `program`:`test`.
+2. Для создания базы нужно прописать в [20-create-schemas.sh](postgres/20-create-databases.sh) свой вариант задания в
+3. Docker Compose позволяет выполнять сборку образа, для этого нужно прописать
+   блок [`build`](https://docs.docker.com/compose/compose-file/build/).
+4. Горизонтальную коммуникацию между сервисами делать нельзя.
+5. Интеграционные тесты можно проверить локально, для этого нужно импортировать в Postman
+   коллекцию `<variant>/postman/collection.json`) и `<variant>/postman/environment.json`.
+
+![Services](images/services.png)
+
+Предположим, у нас сервисы `UserService`, `OrderService`, `WarehouseService` и `Gateway`:
+
+* На `Gateway` от пользователя `Alex` приходит запрос `Купить товар с productName: 'Lego Technic 42129`.
+* `Gateway` -> `UserService` проверяем что пользователь существует и получаем `userUid` пользователя по `login: Alex`.
+* `Gateway` -> `WarehouseService` получаем `itemUid` товара по `productName` и резервируем его для заказа.
+* `Gateway` -> `OrderService` с `userUid` и `itemUid` и создаем заказ с `orderUid`.
+* `Gateway` -> `WarehouseService` с `orderUid` и переводим товар `itemUid` из статуса `Зарезервировано` в
+  статус `Заказан` и прописываем ссылку на `orderUid`.
 
 ### Прием задания
 
@@ -64,9 +57,10 @@
 
 ### Варианты заданий
 
-Распределение вариантов заданий аналогично [ЛР #2](https://github.com/bmstu-rsoi/lab2-template).
+Варианты заданий берутся исходя из формулы:
+(номер в [списке группы](https://docs.google.com/spreadsheets/d/1BT5iLgERiWUPPn4gtOQk4KfHjVOTQbUS7ragAJrl6-Q)-1) % 4)+1.
 
 1. [Flight Booking System](v1/README.md)
-2. [Hotels Booking System](v2/README.md)
-3. [Car Rental System](v3/README.md)
-4. [Library System](v4/README.md)
+1. [Hotels Booking System](v2/README.md)
+1. [Car Rental System](v3/README.md)
+1. [Library System](v4/README.md)

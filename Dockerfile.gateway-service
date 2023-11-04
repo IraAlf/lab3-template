@@ -1,0 +1,15 @@
+FROM golang:1.17 AS builder
+
+ENV GO111MODULE=on
+
+WORKDIR /app
+
+COPY . .
+
+RUN ls -las
+
+RUN go mod tidy
+
+RUN go build -o gateway ./src/gateway-service/cmd
+
+ENTRYPOINT ["./gateway"]
