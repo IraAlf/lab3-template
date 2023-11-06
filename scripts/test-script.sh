@@ -21,6 +21,7 @@ timed() {
   LC_NUMERIC=C printf "\nTotal runtime: %02d min %02d seconds\n" "$dm" "$ds"
 }
 
+
 success() {
   newman run \
     --delay-request=100 \
