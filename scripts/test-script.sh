@@ -3,8 +3,8 @@
 set -e
 
 variant=${1:-${VARIANT}}
-service=${2:-${SERVICE_NAME}}
-port=${3:-${PORT_NUMBER}}
+service=bonus_service
+port=8050
 
 path=$(dirname "$0")
 

@@ -9,6 +9,9 @@ import (
 	"lab2/src/gateway-service/internal/service"
 )
 
+func (gs *GatewayService) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
 func (gs *GatewayService) GetPrivilege(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("X-User-Name")
 	if username == "" {

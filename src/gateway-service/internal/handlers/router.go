@@ -35,6 +35,6 @@ func Router() *mux.Router {
 	router.HandleFunc("/api/v1/tickets", gs.BuyTicket).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/v1/tickets/{ticketUid}", gs.CancelTicket).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/v1/privilege", gs.GetPrivilege).Methods("GET", "OPTIONS")
-
+	router.HandleFunc("/manage/health", gs.GetHealth).Methods("GET")
 	return router
 }
