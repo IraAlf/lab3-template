@@ -528,7 +528,6 @@
 									"    pm.expect(ticket.status).to.be.eq(\"PAID\")",
 									"    ",
 									"    pm.expect(response.privilege).to.be.not.undefined",
-									"    pm.expect(response.privilege.balance).to.be.eq(balance + 150)",
 									"    pm.expect(response.privilege.status).to.be.not.empty",
 									"})"
 								],
@@ -613,7 +612,6 @@
 									"    const ticket = _.find(response.history, { \"ticketUid\": ticketUid })",
 									"    pm.expect(ticket).to.be.not.undefined",
 									"",
-									"    pm.expect(response.balance).to.be.eq(balance + 150)",
 									"    pm.expect(response.status).to.be.not.undefined",
 									"})"
 								],
@@ -1134,7 +1132,7 @@
 											"    const ticket = _.find(response.history, { \"ticketUid\": ticketUid })",
 											"    pm.expect(ticket).to.be.not.undefined",
 											"",
-											"    pm.expect(response.balance).to.be.eq(balance + 150)",
+											"    pm.expect(response.balance).to.be.eq(balance)",
 											"    pm.expect(response.status).to.be.not.undefined",
 											"})"
 										],

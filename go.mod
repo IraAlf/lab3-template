@@ -1,10 +1,10 @@
 module lab2
-
 go 1.17
 
 require (
-	github.com/google/uuid v1.3.0
-	github.com/gorilla/mux v1.8.0
-	github.com/lib/pq v1.10.7
-	github.com/streadway/amqp v1.1.0
+	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
+	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/lib/pq v1.10.7 // indirect
 )

@@ -44,17 +44,17 @@ services:
     depends_on:
       - postgres
 
-  bonus-service:
-    build:
-      context: .
-      dockerfile: Dockerfile.bonus-service
-    restart: on-failure
-    environment:
-      PORT: "8050"
-    ports:
-      - "8050:8050"
-    depends_on:
-      - postgres
+  # bonus-service:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.bonus-service
+  #   restart: on-failure
+  #   environment:
+  #     PORT: "8050"
+  #   ports:
+  #     - "8050:8050"
+  #   depends_on:
+  #     - postgres
 
   gateway-service:
     build:
@@ -69,7 +69,7 @@ services:
       - rabbitmq
       - ticket-service
       - flight-service
-      - bonus-service
+     # - bonus-service
 
 volumes:
   db-data:

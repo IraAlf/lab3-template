@@ -21,7 +21,6 @@ timed() {
   LC_NUMERIC=C printf "\nTotal runtime: %02d min %02d seconds\n" "$dm" "$ds"
 }
 
-
 success() {
   newman run \
     --delay-request=100 \
@@ -37,7 +36,7 @@ step() {
 
   printf "=== Step %d: %s %s ===\n" "$step" "$operation" "$service"
 
-  docker compose "$operation" "$service"
+  docker-compose "$operation" "$service"
   if [[ "$operation" == "start" ]]; then
     "$path"/wait-for.sh -t 120 "http://localhost:$port/manage/health" -- echo "Host localhost:$port is active"
   fi
