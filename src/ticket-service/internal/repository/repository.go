@@ -79,7 +79,7 @@ func (r *TicketRepository) DeleteTicket(id string) error {
 	return err
 }
 func (r *TicketRepository) UpdateTicket(ticket *models.Ticket) error {
-
+	fmt.Println(ticket.TicketUID)
 	_, err := r.db.Query(
 		`UPDATE ticket set status = $1 where ticket_uid = $2;`,
 		ticket.Status,

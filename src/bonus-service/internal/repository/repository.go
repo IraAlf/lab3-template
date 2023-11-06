@@ -42,12 +42,20 @@ func (r *BonusRepository) CreateHistoryRecord(record *models.PrivilegeHistory) e
 }
 
 func (r *BonusRepository) UpdatePrivilege(record *models.Privilege) error {
-	_, err := r.db.Query(
-		`UPDATE  privilege set balance = $2 where username = $1;`,
-		record.Username,
-		record.Balance,
-	)
-
+	pr, err := r.GetPrvilegeByUsername(record.Username)
+	if pr == nil {
+		_, err = r.db.Query(
+			`INSERT INTO privilege (username, balance) VALUES ($1, $2) RETURNING id;`,
+			record.Username,
+			record.Balance,
+		)
+	} else {
+		_, err = r.db.Query(
+			`UPDATE  privilege set balance = balance+$2 where username = $1;`,
+			record.Username,
+			record.Balance,
+		)
+	}
 	return err
 }
 
@@ -71,7 +79,7 @@ func (r *BonusRepository) GetPrvilegeByUsername(username string) (*models.Privil
 	err := row.Scan(&privilege.ID, &privilege.Username, &privilege.Status, &privilege.Balance)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return &privilege, err
+			return nil, err
 		}
 	}
 

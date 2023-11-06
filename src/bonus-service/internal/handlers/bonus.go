@@ -49,7 +49,7 @@ func (h *BonusHandler) UpdatePrivilegeHandler(w http.ResponseWriter, r *http.Req
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
+	fmt.Println("VVVVVVVVVVVVVVVV")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -62,7 +62,7 @@ func (h *BonusHandler) CreatePrivilegeHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := h.BonusRepo.CreatePrivilege(&record); err != nil {
+	if err := h.BonusRepo.UpdatePrivilege(&record); err != nil {
 		log.Printf("Failed to create ticket: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return

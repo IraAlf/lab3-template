@@ -65,7 +65,7 @@ func (gs *GatewayService) CancelTicket(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
+	fmt.Println("JJJJJJJJJJJJJJ")
 	w.WriteHeader(204)
 }
 
