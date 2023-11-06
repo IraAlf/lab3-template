@@ -39,7 +39,7 @@ jobs:
         timeout-minutes: 5
         run: sudo ./scripts/test-script.sh
         env:
-          VARIANT: "v1"
+          VARIANT: v1
           SERVICE_NAME: bonus-service
           PORT_NUMBER: 8080
       - uses: education/autograding@v1
