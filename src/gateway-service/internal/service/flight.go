@@ -128,3 +128,35 @@ func GetAirport(flightServiceAddress string, airportID int) (*models.Airport, er
 
 	return airport, nil
 }
+
+func ManageFlight(flightServiceAddress string) error {
+	requestURL := fmt.Sprintf("%s/api/v1/flight/manage/health", flightServiceAddress)
+
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		fmt.Println("Failed to create an http request")
+		return err
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Minute,
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("Failed request to flight service: %w", err)
+	}
+
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			fmt.Println("Failed to close response body")
+		}
+	}(res.Body)
+
+	airport := &models.Airport{}
+	if err = json.NewDecoder(res.Body).Decode(airport); err != nil {
+		return fmt.Errorf("Failed to decode response: %w", err)
+	}
+
+	return nil
+}

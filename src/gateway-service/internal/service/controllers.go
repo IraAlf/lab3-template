@@ -1,11 +1,19 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
+	"time"
 
+	"lab2/src/gateway-service/internal/gopher_and_rabbit"
 	"lab2/src/gateway-service/internal/models"
+
+	"github.com/streadway/amqp"
 )
+
+var N = 0
 
 func handleError(err error, msg string) {
 	if err != nil {
@@ -19,41 +27,57 @@ func CalncelTicketController(ticketServiceAddress, bonusServiceAddress, username
 	if err != nil {
 		return err
 	}
-	// err = CancelTicketForBonus(bonusServiceAddress, username, ticketUID)
-	// if err != nil {
 
-	// 	conn, err := amqp.Dial(gopher_and_rabbit.Config.AMQPConnectionURL)
-	// 	handleError(err, "Can't connect to AMQP")
-	// 	defer conn.Close()
+	err = CancelTicketForBonus(bonusServiceAddress, username, ticketUID)
+	if err != nil {
+		conn, err := amqp.Dial(gopher_and_rabbit.Config.AMQPConnectionURL)
+		handleError(err, "Can't connect to AMQP")
+		defer conn.Close()
 
-	// 	amqpChannel, err := conn.Channel()
-	// 	handleError(err, "Can't create a amqpChannel")
+		amqpChannel, err := conn.Channel()
+		handleError(err, "Can't create a amqpChannel")
 
-	// 	defer amqpChannel.Close()
+		defer amqpChannel.Close()
 
-	// 	queue, err := amqpChannel.QueueDeclare("add", true, false, false, false, nil)
-	// 	handleError(err, "Could not declare `add` queue")
+		queue, err := amqpChannel.QueueDeclare("add", true, false, false, false, nil)
+		handleError(err, "Could not declare `add` queue")
 
-	// 	rand.Seed(time.Now().UnixNano())
+		rand.Seed(time.Now().UnixNano())
 
-	// 	addTask := gopher_and_rabbit.AddTask{Addr: bonusServiceAddress, Username: username, TicketUID: ticketUID}
-	// 	body, err := json.Marshal(addTask)
-	// 	if err != nil {
-	// 		handleError(err, "Error encoding JSON")
-	// 	}
+		addTask := gopher_and_rabbit.AddTask{Addr: bonusServiceAddress, Username: username, TicketUID: ticketUID}
+		body, err := json.Marshal(addTask)
+		if err != nil {
+			handleError(err, "Error encoding JSON")
+		}
 
-	// 	err = amqpChannel.Publish("", queue.Name, false, false, amqp.Publishing{
-	// 		DeliveryMode: amqp.Persistent,
-	// 		ContentType:  "text/plain",
-	// 		Body:         body,
-	// 	})
+		err = amqpChannel.Publish("", queue.Name, false, false, amqp.Publishing{
+			DeliveryMode: amqp.Persistent,
+			ContentType:  "text/plain",
+			Body:         body,
+		})
 
-	// 	if err != nil {
-	// 		log.Fatalf("Error publishing message: %s", err)
-	// 	}
-	// }
+		if err != nil {
+			log.Fatalf("Error publishing message: %s", err)
+		}
+	}
 
 	return nil
+}
+
+func CheckFlight(flightaddr string) chan bool {
+	ticker := time.NewTicker(5 * time.Second)
+
+	stopChan := make(chan bool)
+	go func(ticker *time.Ticker) {
+
+		err := ManageFlight(flightaddr)
+		if err == nil {
+			N = 0
+			ticker.Stop()
+		}
+	}(ticker)
+
+	return stopChan
 }
 
 func UserTicketsController(ticketServiceAddress, flightServiceAddress, username string) (*[]models.TicketInfo, error) {
@@ -73,27 +97,37 @@ func UserTicketsController(ticketServiceAddress, flightServiceAddress, username 
 			Price:        ticket.Price,
 			Status:       ticket.Status,
 		}
-		flight, err := GetFlight(flightServiceAddress, ticket.FlightNumber)
-		if err != nil {
-			ticketsInfo = append(ticketsInfo, ticketInfo)
-			continue
-		}
 
-		airportFrom, err := GetAirport(flightServiceAddress, flight.FromAirportId)
-		if err != nil {
-			ticketsInfo = append(ticketsInfo, ticketInfo)
-			continue
-		}
+		err := fmt.Errorf("error")
 
-		airportTo, err := GetAirport(flightServiceAddress, flight.ToAirportId)
-		if err != nil {
-			ticketsInfo = append(ticketsInfo, ticketInfo)
-			continue
-		}
-		ticketInfo.Date = flight.Date
-		ticketInfo.ToAirport = fmt.Sprintf("%s %s", airportTo.City, airportTo.Name)
-		ticketInfo.FromAirport = fmt.Sprintf("%s %s", airportFrom.City, airportFrom.Name)
+		for err != nil && N < 10 {
+			flight, err := GetFlight(flightServiceAddress, ticket.FlightNumber)
+			if err != nil {
+				ticketsInfo = append(ticketsInfo, ticketInfo)
+				N += 1
+				continue
+			}
 
+			airportFrom, err := GetAirport(flightServiceAddress, flight.FromAirportId)
+			if err != nil {
+				ticketsInfo = append(ticketsInfo, ticketInfo)
+				N += 1
+				continue
+			}
+			airportTo, err := GetAirport(flightServiceAddress, flight.ToAirportId)
+			if err != nil {
+				ticketsInfo = append(ticketsInfo, ticketInfo)
+				N += 1
+				continue
+			}
+			err = nil
+			ticketInfo.Date = flight.Date
+			ticketInfo.ToAirport = fmt.Sprintf("%s %s", airportTo.City, airportTo.Name)
+			ticketInfo.FromAirport = fmt.Sprintf("%s %s", airportFrom.City, airportFrom.Name)
+		}
+		if err != nil {
+			CheckFlight(flightServiceAddress)
+		}
 		ticketsInfo = append(ticketsInfo, ticketInfo)
 	}
 
