@@ -57,7 +57,7 @@ func CalncelTicketController(ticketServiceAddress, bonusServiceAddress, username
 		})
 
 		if err != nil {
-			log.Fatalf("Error publishing message: %s", err)
+			log.Fatalf("Error  publishing message: %s", err)
 		}
 	}
 
