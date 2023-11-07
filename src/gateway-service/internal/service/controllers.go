@@ -1,16 +1,11 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
-	"lab2/src/gateway-service/internal/gopher_and_rabbit"
 	"lab2/src/gateway-service/internal/models"
-
-	"github.com/streadway/amqp"
 )
 
 var N = 0
@@ -29,37 +24,37 @@ func CalncelTicketController(ticketServiceAddress, bonusServiceAddress, username
 	}
 
 	err = CancelTicketForBonus(bonusServiceAddress, username, ticketUID)
-	if err != nil {
-		conn, err := amqp.Dial(gopher_and_rabbit.Config.AMQPConnectionURL)
-		handleError(err, "Can't connect to AMQP")
-		defer conn.Close()
+	// if err != nil {
+	// 	conn, err := amqp.Dial(gopher_and_rabbit.Config.AMQPConnectionURL)
+	// 	handleError(err, "Can't connect to AMQP")
+	// 	defer conn.Close()
 
-		amqpChannel, err := conn.Channel()
-		handleError(err, "Can't create a amqpChannel")
+	// 	amqpChannel, err := conn.Channel()
+	// 	handleError(err, "Can't create a amqpChannel")
 
-		defer amqpChannel.Close()
+	// 	defer amqpChannel.Close()
 
-		queue, err := amqpChannel.QueueDeclare("add", true, false, false, false, nil)
-		handleError(err, "Could not declare `add` queue")
+	// 	queue, err := amqpChannel.QueueDeclare("add", true, false, false, false, nil)
+	// 	handleError(err, "Could not declare `add` queue")
 
-		rand.Seed(time.Now().UnixNano())
+	// 	rand.Seed(time.Now().UnixNano())
 
-		addTask := gopher_and_rabbit.AddTask{Addr: bonusServiceAddress, Username: username, TicketUID: ticketUID}
-		body, err := json.Marshal(addTask)
-		if err != nil {
-			handleError(err, "Error encoding JSON")
-		}
+	// 	addTask := gopher_and_rabbit.AddTask{Addr: bonusServiceAddress, Username: username, TicketUID: ticketUID}
+	// 	body, err := json.Marshal(addTask)
+	// 	if err != nil {
+	// 		handleError(err, "Error encoding JSON")
+	// 	}
 
-		err = amqpChannel.Publish("", queue.Name, false, false, amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "text/plain",
-			Body:         body,
-		})
+	// 	err = amqpChannel.Publish("", queue.Name, false, false, amqp.Publishing{
+	// 		DeliveryMode: amqp.Persistent,
+	// 		ContentType:  "text/plain",
+	// 		Body:         body,
+	// 	})
 
-		if err != nil {
-			log.Fatalf("Error publishing message: %s", err)
-		}
-	}
+	// 	if err != nil {
+	// 		log.Fatalf("Error publishing message: %s", err)
+	// 	}
+	// }
 
 	return nil
 }
@@ -105,20 +100,17 @@ func UserTicketsController(ticketServiceAddress, flightServiceAddress, username 
 			err = nil
 			flight, err := GetFlight(flightServiceAddress, ticket.FlightNumber)
 			if err != nil {
-				ticketsInfo = append(ticketsInfo, ticketInfo)
 				N += 1
 				continue
 			}
 
 			airportFrom, err := GetAirport(flightServiceAddress, flight.FromAirportId)
 			if err != nil {
-				ticketsInfo = append(ticketsInfo, ticketInfo)
 				N += 1
 				continue
 			}
 			airportTo, err := GetAirport(flightServiceAddress, flight.ToAirportId)
 			if err != nil {
-				ticketsInfo = append(ticketsInfo, ticketInfo)
 				N += 1
 				continue
 			}
