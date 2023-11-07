@@ -66,6 +66,8 @@ func main() {
 				errCancel = service.CancelTicketForBonus(addTask.Addr, addTask.Username, addTask.TicketUID)
 				if errCancel != nil {
 					log.Printf("Error again!")
+				} else {
+					err = nil
 				}
 
 				time.Sleep(10 * time.Second)
