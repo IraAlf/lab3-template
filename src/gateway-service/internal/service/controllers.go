@@ -101,6 +101,7 @@ func UserTicketsController(ticketServiceAddress, flightServiceAddress, username 
 		err := fmt.Errorf("error")
 
 		for err != nil && N < 10 {
+			err = nil
 			flight, err := GetFlight(flightServiceAddress, ticket.FlightNumber)
 			if err != nil {
 				ticketsInfo = append(ticketsInfo, ticketInfo)
@@ -125,9 +126,9 @@ func UserTicketsController(ticketServiceAddress, flightServiceAddress, username 
 			ticketInfo.ToAirport = fmt.Sprintf("%s %s", airportTo.City, airportTo.Name)
 			ticketInfo.FromAirport = fmt.Sprintf("%s %s", airportFrom.City, airportFrom.Name)
 		}
-		// if err != nil {
-		// 	CheckFlight(flightServiceAddress)
-		// }
+		if err != nil {
+			CheckFlight(flightServiceAddress)
+		}
 		ticketsInfo = append(ticketsInfo, ticketInfo)
 	}
 
