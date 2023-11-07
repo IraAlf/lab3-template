@@ -81,6 +81,7 @@ func CheckFlight(flightaddr string) chan bool {
 }
 
 func UserTicketsController(ticketServiceAddress, flightServiceAddress, username string) (*[]models.TicketInfo, error) {
+	N = 0
 	tickets, err := GetUserTickets(ticketServiceAddress, username)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get user tickets: %s\n", err)
