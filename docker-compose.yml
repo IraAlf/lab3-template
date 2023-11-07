@@ -3,7 +3,6 @@ services:
   rabbitmq:
     image: rabbitmq:3.10.7-management
     container_name: rabbitmq
-
     ports:
       - 15672:15672
   postgres:
